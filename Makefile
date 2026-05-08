@@ -13,6 +13,8 @@ INCLUDES := -I$(GAME_DIR)/include -Iraylib
 SRCS := \
 	$(GAME_DIR)/main.cpp \
 	$(GAME_DIR)/src/core/GameApp.cpp \
+	$(GAME_DIR)/src/camera/CameraController.cpp \
+	$(GAME_DIR)/src/player/Player.cpp \
 	$(GAME_DIR)/src/scene/GridWorld.cpp
 
 OBJS := $(patsubst $(GAME_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRCS))

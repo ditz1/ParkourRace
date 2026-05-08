@@ -1,6 +1,7 @@
 #pragma once
 
-#include "raylib.h"
+#include "camera/CameraController.h"
+#include "player/Player.h"
 #include "scene/GridWorld.h"
 
 class GameApp {
@@ -16,6 +17,7 @@ private:
     void Update();
     void Draw() const;
 
-    Camera3D camera_;
+    CameraController cameraController_;
+    Player player_;
     GridWorld world_;
 };
