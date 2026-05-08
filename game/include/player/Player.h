@@ -16,6 +16,7 @@ public:
                 const Vector3& planarForward,
                 const Vector3& planarRight,
                 bool allowInput,
+                bool alignModelToLookDirection,
                 const CollisionMap& collisionMap);
     void Draw3D() const;
 
@@ -45,11 +46,15 @@ private:
                                    const Vector3& planarForward,
                                    const Vector3& planarRight,
                                    bool allowInput,
+                                   bool alignModelToLookDirection,
                                    const CollisionMap& collisionMap);
     Vector3 GetHalfExtents() const;
     Vector3 GetBodyCenter(const Vector3& position) const;
     void SetAnimationState(AnimState state);
+    bool IsActionState(AnimState state) const;
+    bool IsCurrentActionAnimationComplete() const;
     Vector3 NormalizePlanar(Vector3 v) const;
+    void UpdateModelTransform();
 
     Vector3 position_;
     Vector3 velocity_;
@@ -68,6 +73,7 @@ private:
     float bodyHalfWidth_;
     float bodyHalfDepth_;
     float modelScale_;
+    float modelYawRadians_;
 
     Model model_;
     bool modelLoaded_;
@@ -81,4 +87,5 @@ private:
     float slideDuration_;
     bool jumpRequested_;
     bool isGrounded_;
+    bool currentActionAnimationComplete_;
 };

@@ -7,6 +7,7 @@
 
 namespace {
 constexpr float kAnimationFps = 30.0f;
+constexpr float kRunAnimationSpeedMultiplier = 2.0f;
 constexpr float kYawLerpSpeed = 14.0f;
 constexpr float kMinimumPlanarLengthSq = 0.000001f;
 }
@@ -29,6 +30,7 @@ Player::Player()
       bodyHalfWidth_(0.3f),
       bodyHalfDepth_(0.3f),
       modelScale_(AppConfig::PlayerModelScale),
+      modelYawRadians_(0.0f),
       model_{},
       modelLoaded_(false),
       animations_(nullptr),
@@ -40,7 +42,8 @@ Player::Player()
       slideTimer_(0.0f),
       slideDuration_(0.55f),
       jumpRequested_(false),
-      isGrounded_(true) {}
+      isGrounded_(true),
+      currentActionAnimationComplete_(true) {}
 
 Player::~Player() {
     Unload();
@@ -65,6 +68,7 @@ bool Player::Load() {
     }
 
     SetAnimationState(AnimState::Idle);
+    UpdateModelTransform();
     return true;
 }
 
@@ -85,6 +89,7 @@ void Player::Update(float deltaTime,
                     const Vector3& planarForward,
                     const Vector3& planarRight,
                     bool allowInput,
+                    bool alignModelToLookDirection,
                     const CollisionMap& collisionMap) {
     if (allowInput && IsKeyPressed(KEY_SPACE)) {
         jumpRequested_ = true;
@@ -94,7 +99,13 @@ void Player::Update(float deltaTime,
         slideTimer_ = slideDuration_;
     }
 
-    ApplyMovementAndCollision(deltaTime, planarForward, planarRight, allowInput, collisionMap);
+    ApplyMovementAndCollision(deltaTime,
+                              planarForward,
+                              planarRight,
+                              allowInput,
+                              alignModelToLookDirection,
+                              collisionMap);
+    UpdateModelTransform();
     AdvanceAnimation(deltaTime);
 }
 
@@ -108,10 +119,11 @@ void Player::Draw3D() const {
         return;
     }
 
+    const float modelYawDegrees = modelYawRadians_ * (180.0f / PI);
     DrawModelEx(model_,
                 position_,
-                Vector3{1.0f, 0.0f, 0.0f},
-                90.0f,
+                Vector3{0.0f, 1.0f, 0.0f},
+                modelYawDegrees,
                 Vector3{modelScale_, modelScale_, modelScale_},
                 WHITE);
 }
@@ -182,13 +194,27 @@ void Player::AdvanceAnimation(float deltaTime) {
         return;
     }
 
-    animationFrameAccumulator_ += deltaTime * kAnimationFps;
+    float playbackSpeedMultiplier = 1.0f;
+    if (animationState_ == AnimState::RunForward || animationState_ == AnimState::RunBackward) {
+        playbackSpeedMultiplier = kRunAnimationSpeedMultiplier;
+    }
+
+    animationFrameAccumulator_ += deltaTime * kAnimationFps * playbackSpeedMultiplier;
+    bool actionAnimationReachedEnd = false;
     while (animationFrameAccumulator_ >= 1.0f) {
         animationFrameAccumulator_ -= 1.0f;
         if (animationReversePlayback_) {
+            const int previousFrame = currentAnimationFrame_;
             currentAnimationFrame_ = (currentAnimationFrame_ - 1 + frameCount) % frameCount;
+            if (IsActionState(animationState_) && previousFrame == 0) {
+                actionAnimationReachedEnd = true;
+            }
         } else {
+            const int previousFrame = currentAnimationFrame_;
             currentAnimationFrame_ = (currentAnimationFrame_ + 1) % frameCount;
+            if (IsActionState(animationState_) && previousFrame == (frameCount - 1)) {
+                actionAnimationReachedEnd = true;
+            }
         }
     }
 
@@ -198,6 +224,11 @@ void Player::AdvanceAnimation(float deltaTime) {
     if (currentAnimationFrame_ < 0) {
         currentAnimationFrame_ = 0;
     }
+
+    if (IsActionState(animationState_) && actionAnimationReachedEnd) {
+        currentActionAnimationComplete_ = true;
+    }
+
     UpdateModelAnimation(model_, animations_[activeAnimationIndex], currentAnimationFrame_);
 }
 
@@ -205,6 +236,7 @@ void Player::ApplyMovementAndCollision(float deltaTime,
                                        const Vector3& planarForward,
                                        const Vector3& planarRight,
                                        bool allowInput,
+                                       bool alignModelToLookDirection,
                                        const CollisionMap& collisionMap) {
     Vector2 inputAxis = {0.0f, 0.0f};
     if (allowInput) {
@@ -227,7 +259,9 @@ void Player::ApplyMovementAndCollision(float deltaTime,
         (planarRight.z * inputAxis.x) + (planarForward.z * inputAxis.y),
     };
 
-    const Vector3 normalizedMoveDirection = NormalizePlanar(requestedMoveDirection);
+    const Vector3 normalizedMoveDirection = hasInput
+        ? NormalizePlanar(requestedMoveDirection)
+        : Vector3{0.0f, 0.0f, 0.0f};
 
     if (slideTimer_ > 0.0f) {
         slideTimer_ -= deltaTime;
@@ -291,30 +325,40 @@ void Player::ApplyMovementAndCollision(float deltaTime,
 
     position_ = updatedPosition;
 
-    if (hasInput && !isSliding) {
+    if (alignModelToLookDirection) {
+        facingDirection_ = NormalizePlanar(planarForward);
+    } else if (hasInput && !isSliding) {
         const Vector3 targetFacing = normalizedMoveDirection;
         const float blend = std::fmin(1.0f, deltaTime * kYawLerpSpeed);
         facingDirection_.x += (targetFacing.x - facingDirection_.x) * blend;
         facingDirection_.z += (targetFacing.z - facingDirection_.z) * blend;
         facingDirection_ = NormalizePlanar(facingDirection_);
     }
+    modelYawRadians_ = std::atan2f(facingDirection_.x, facingDirection_.z);
 
     const float forwardDot = (normalizedMoveDirection.x * planarForward.x) + (normalizedMoveDirection.z * planarForward.z);
     const bool moving = hasInput && (std::fabs(normalizedMoveDirection.x) > 0.0f || std::fabs(normalizedMoveDirection.z) > 0.0f);
 
+    AnimState desiredState = AnimState::Idle;
     if (!isGrounded_) {
-        SetAnimationState(AnimState::Jump);
+        desiredState = AnimState::Jump;
     } else if (isSliding) {
-        SetAnimationState(AnimState::Slide);
+        desiredState = AnimState::Slide;
     } else if (moving) {
         if (forwardDot >= 0.0f) {
-            SetAnimationState(AnimState::RunForward);
+            desiredState = AnimState::RunForward;
         } else {
-            SetAnimationState(AnimState::RunBackward);
+            desiredState = AnimState::RunBackward;
         }
-    } else {
-        SetAnimationState(AnimState::Idle);
     }
+
+    if (IsActionState(animationState_) &&
+        desiredState != animationState_ &&
+        !IsCurrentActionAnimationComplete()) {
+        desiredState = animationState_;
+    }
+
+    SetAnimationState(desiredState);
 }
 
 Vector3 Player::GetHalfExtents() const {
@@ -330,9 +374,18 @@ void Player::SetAnimationState(AnimState state) {
         animationState_ = state;
         animationFrameAccumulator_ = 0.0f;
         currentAnimationFrame_ = 0;
+        currentActionAnimationComplete_ = !IsActionState(state);
     }
 
     animationReversePlayback_ = (state == AnimState::RunBackward);
+}
+
+bool Player::IsActionState(AnimState state) const {
+    return state == AnimState::Slide || state == AnimState::Jump;
+}
+
+bool Player::IsCurrentActionAnimationComplete() const {
+    return currentActionAnimationComplete_;
 }
 
 Vector3 Player::NormalizePlanar(Vector3 v) const {
@@ -344,4 +397,17 @@ Vector3 Player::NormalizePlanar(Vector3 v) const {
 
     const float invLen = 1.0f / std::sqrt(lenSq);
     return {v.x * invLen, 0.0f, v.z * invLen};
+}
+
+void Player::UpdateModelTransform() {
+    if (!modelLoaded_) {
+        return;
+    }
+
+    model_.transform = Matrix{
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, -1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f,
+    };
 }

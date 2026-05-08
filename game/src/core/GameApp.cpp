@@ -47,6 +47,7 @@ void GameApp::Update() {
                    cameraController_.GetPlanarForward(),
                    cameraController_.GetPlanarRight(),
                    cameraController_.IsAttachedToPlayer(),
+                   cameraController_.IsThirdPerson(),
                    level_.GetCollisionMap());
     world_.Update(deltaTime);
 }

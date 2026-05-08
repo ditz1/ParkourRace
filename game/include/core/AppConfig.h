@@ -10,5 +10,5 @@ struct AppConfig {
     static constexpr const char* CelVertexShaderPath = "shaders/cel_lit.vs";
     static constexpr const char* CelFragmentShaderPath = "shaders/cel_lit.fs";
     static constexpr float LevelScale = 10.0f;
-    static constexpr float PlayerModelScale = 0.1f;
+    static constexpr float PlayerModelScale = 0.01f;
 };
