@@ -23,10 +23,12 @@ void GameApp::Initialize() {
     DisableCursor();
 
     level_.Load(AppConfig::LevelModelPath);
+    player_.Load();
 }
 
 void GameApp::Shutdown() {
     if (IsWindowReady()) {
+        player_.Unload();
         level_.Unload();
         EnableCursor();
         CloseWindow();
@@ -56,7 +58,7 @@ void GameApp::Draw() const {
     BeginMode3D(cameraController_.GetCamera());
     world_.Draw3D();
     level_.Draw3D();
-    if (!cameraController_.IsAttachedToPlayer()) {
+    if (!cameraController_.IsFirstPerson() || !player_.IsFirstPersonBodyHidden()) {
         player_.Draw3D();
     }
     if (showDebugBoundingBoxes_) {
@@ -64,14 +66,19 @@ void GameApp::Draw() const {
     }
     EndMode3D();
 
-    const char* modeText = cameraController_.IsAttachedToPlayer()
-        ? "Mode: attached player camera | C: free debug camera"
-        : "Mode: free debug camera | C: reattach to player";
+    const char* modeText = "";
+    if (cameraController_.IsFirstPerson()) {
+        modeText = "Mode: first person | C: third person";
+    } else if (cameraController_.IsThirdPerson()) {
+        modeText = "Mode: third person | C: free camera";
+    } else {
+        modeText = "Mode: free camera | C: first person";
+    }
     const char* boundsText = showDebugBoundingBoxes_
         ? "Collision triangles: ON  | B: toggle"
         : "Collision triangles: OFF | B: toggle";
     DrawText(modeText, 16, 16, 20, DARKGRAY);
-    DrawText("WASD movement works in attached mode", 16, 42, 20, GRAY);
+    DrawText("WASD move | Space jump | F slide", 16, 42, 20, GRAY);
     DrawText(boundsText, 16, 68, 20, DARKGREEN);
     DrawFPS(16, 96);
 

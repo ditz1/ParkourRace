@@ -4,7 +4,8 @@
 #include "raylib.h"
 
 enum class CameraControlMode {
-    AttachedToPlayer,
+    FirstPerson,
+    ThirdPerson,
     FreeDebug,
 };
 
@@ -18,11 +19,13 @@ public:
     Vector3 GetPlanarForward() const;
     Vector3 GetPlanarRight() const;
     bool IsAttachedToPlayer() const;
+    bool IsFirstPerson() const;
+    bool IsThirdPerson() const;
     CameraControlMode GetMode() const;
 
 private:
     void ToggleMode(const Player& player);
-    void UpdateAttachedToPlayer(const Player& player);
+    void UpdateFollowPlayer(const Player& player);
     void SyncCameraToPlayer(const Player& player);
     Vector3 ComputeForwardDirection() const;
 
@@ -31,4 +34,6 @@ private:
     float yawRadians_;
     float pitchRadians_;
     float mouseSensitivity_;
+    float thirdPersonDistance_;
+    float thirdPersonHeightOffset_;
 };

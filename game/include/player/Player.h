@@ -68,7 +68,6 @@ private:
     float bodyHalfWidth_;
     float bodyHalfDepth_;
     float modelScale_;
-    float modelYawDegrees_;
 
     Model model_;
     bool modelLoaded_;
