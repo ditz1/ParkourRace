@@ -1,3 +1,4 @@
 assets/ filter=lfs diff=lfs merge=lfs -text
 /assets filter=lfs diff=lfs merge=lfs -text
 assets/* filter=lfs diff=lfs merge=lfs -text
+assets/parkourplayer.glb filter=lfs diff=lfs merge=lfs -text
