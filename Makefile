@@ -15,7 +15,10 @@ SRCS := \
 	$(GAME_DIR)/src/core/GameApp.cpp \
 	$(GAME_DIR)/src/camera/CameraController.cpp \
 	$(GAME_DIR)/src/player/Player.cpp \
-	$(GAME_DIR)/src/scene/GridWorld.cpp
+	$(GAME_DIR)/src/scene/GridWorld.cpp \
+	$(GAME_DIR)/src/scene/LevelMap.cpp \
+	$(GAME_DIR)/src/world/ObjMesh.cpp \
+	$(GAME_DIR)/src/world/CollisionMap.cpp
 
 OBJS := $(patsubst $(GAME_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRCS))
 DEPS := $(OBJS:.o=.d)
